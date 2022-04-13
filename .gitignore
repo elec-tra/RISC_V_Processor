@@ -1,0 +1,9 @@
+*
+
+!README.md
+!.gitignore
+!LICENSE
+
+!*/
+!source_files/*/*.v
+!source_files/*/*.xdc
