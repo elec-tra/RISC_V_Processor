@@ -89,12 +89,3 @@ output reg [ 31 : 0 ] Q
 		end
 
 endmodule
-
-/*
-1. `define
-2. 6'b0_000_01
-3. ?
-4. always @( S , A, B)
-5. Q=32'd0
-6. if there is more than one statement then use, begin and end
-*/
