@@ -62,15 +62,15 @@ output reg [ 31 : 0 ] Q
 				`ALU_XOR_OP: Q = A ^ B; 
 
 				`ALU_SLL_OP: Q = A << B;
-				`ALU_SRA_OP: Q = A >>> B;
+				`ALU_SRA_OP: Q = $signed(A) >>> $signed(B);
 				`ALU_SRL_OP: Q = A >> B;
 
-				`ALU_SLT_OP: begin Q = ($signed(A) <= $signed(B)) ? 32'd1 : 32'd0; 
-							 CMP = ($signed(A) <= $signed(B)) ? 1 : 0;
+				`ALU_SLT_OP: begin Q = ($signed(A) < $signed(B)) ? 32'd1 : 32'd0; 
+							 CMP = ($signed(A) < $signed(B)) ? 1 : 0;
 							 end 
 
-				`ALU_SLTU_OP: begin Q = (A <= B) ? 32'd1 : 23'd0; 
-				              CMP = (A <= B) ? 1 : 0;
+				`ALU_SLTU_OP: begin Q = (A < B) ? 32'd1 : 32'd0; 
+				              CMP = (A < B) ? 1 : 0;
 				              end
 
 				`ALU_BEQ_OP: CMP = (A == B) ? 1 : 0;
