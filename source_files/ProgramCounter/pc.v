@@ -1,11 +1,12 @@
-`timescale 1ns / 1ps
+`timescale 1ns / 1ns
 
 module pc(
-    input [31 : 0] D,
-    input ENABLE,
     input CLK,
     input RES,
+    input ENABLE,
     input MODE,
+    input [31 : 0] D,
+    
     output reg [31 : 0] PC_OUT
 );
 
