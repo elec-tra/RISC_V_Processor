@@ -5,7 +5,8 @@ module ctrl_ampel(
     input BTN,
     
     output CNTR_RES, 
-    output [2 : 0] RGB);
+    output [2 : 0] RGB
+);
     
      //parameter CLOCK_SIGNALS = 32'd10; //for 2Hz
     parameter CLOCK_SIGNALS = 32'd500000000; //for 100 MHz
