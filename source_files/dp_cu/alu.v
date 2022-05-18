@@ -1,3 +1,49 @@
+/*
+Implemented operations of the ALU
+
+ADD: Addition
+SUB: Subtraction
+AND: Bitwise AND
+OR: Bitwise OR
+XOR: Bitwise XOR
+SLL: Logical shift to left
+SRA: Arithmetic shift to right
+SRL: Logical shift to right
+SLT: Signed compare
+SLTU: Unsigned compare
+BEQ: Equal comparison
+BNE: Unequal comparison
+BLT: Signed lesser than comparison
+BGE: Signed greater than comparison
+BLTU: Unsigned lesser than comparison
+BGEU: Unsigned greater than comparison
+
+Extensions:
+
+LUI: rd <- (Direct value<<12)
+AUIPC: rd <- (Direct value<<12) + Program Counter value
+ADDI : Add Immediate
+SLTI : Signed Compare Immediate
+SLTIU : Unsigned Compare Immediate
+XORI : XOR Immediate
+ORI : OR_Immediate
+ANDI : AND Immediate
+SLLI : Shift Left Logical Immediate
+SRLI : Shift Right Logical Immediate
+SRAI : Shift Right Arithmetic Immediate
+
+
+The CMP signal is always „1“ if the comparison is true, otherwise it is “0”.
+*/
+
+/*
+
+Bits of RISC-V that define S in our case : 
+
+[30](func7), [14:12](func3), [6:5](opcode)
+
+*/
+
 `define ALU_ADD_OP 6'b0_000_01
 `define ALU_SUB_OP 6'b1_000_01
 `define ALU_AND_OP 6'b0_111_01
@@ -17,7 +63,7 @@
 
 //Extensions
 `define ALU_LUI_OP 6'b?_???_10 //Custom ALUOp bit 10 for LUI
-`define ALU_AIUPC_OP 6'b?_???_00 //Least priority for now in I-Type
+//`define ALU_AIUPC_OP 6'b?_???_00 //Least priority for now in I-Type
 
 `define ALU_ADDI_OP 6'b?_000_00
 `define ALU_SLTI_OP 6'b?_010_00
@@ -94,17 +140,17 @@ output reg [ 31 : 0 ] Q
 				              CMP = (A < B) ? 1 : 0;
 				              end
 
-				`ALU_LUI_OP: Q = (B << 4'd12);
+				`ALU_LUI_OP: Q = A + B;
 
-				`ALU_AIUPC_OP: Q = (B << 4'd12) + A;			  
+				/*`ALU_AIUPC_OP: Q = B + A;			  
 
 				
 				default: begin Q = 32'd0; 
 				                CMP = 0;
-						  end			  
+						  end*/			  
 
 			endcase
 
 		end
 
-endmodule
+endmodule		
