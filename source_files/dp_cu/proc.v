@@ -46,6 +46,7 @@ module proc(
 	//wire MemWrite;
 	wire ALUSrc1; //For Reg/PC to ALU_A
 	wire ALUSrc; //For Reg/Imm to ALU_B
+	wire ALUSrc1_5; // for zero
 	wire RegWrite;
 
 	//Register Set
@@ -63,6 +64,7 @@ module proc(
 	//ALU
 	wire[5 : 0] ALU_control;
 	wire [31 : 0] ALU_A;
+	wire [31 : 0] ALU_A_1; // for additional 0
 	wire [31 : 0] ALU_B;
 	wire [31 : 0] ALU_result;
 	wire Zero;
@@ -70,7 +72,7 @@ module proc(
 	//-----Wire Assignments-----
 
 	//PC
-	assign PCSrc = 1'b0;
+	assign PCSrc = Branch & Zero;
 	assign Jmp_adr = instr_adr + imm_gen_output_lshifted;
 
 	//Control Unit
@@ -82,7 +84,7 @@ module proc(
 	assign Write_register = instr_read[11 : 7];
 
 	//Immediate Generation
-	assign imm_gen_output_lshifted = imm_gen_output << 1; 
+	assign imm_gen_output_lshifted = imm_gen_output << 1'd1; 
 
 	//ALU
 	assign ALU_control = {instr_read[30], instr_read[14 : 12], ALUOp};
@@ -103,7 +105,7 @@ module proc(
 	//Control unit (TODO: Instantiation)
 	ctrl CU(.RES(res), .CLK(clk), .opcode(Opcode), .MODE(Branch), 
 			.instr_req(instr_req), .instr_gnt(instr_gnt), .instr_r_valid(instr_r_valid),
-			.write_enable(RegWrite), .ALUSrcMux1(ALUSrc1), .ALUSrcMux2(ALUSrc), .ALUOp(ALUOp));
+			.write_enable(RegWrite), .ALUSrcMux1(ALUSrc1), .ALUSrcMux1_5(ALUSrc1_5), .ALUSrcMux2(ALUSrc), .ALUOp(ALUOp));
 
 	//Register Set
 	regset Register_Set(.D(Write_data), .A_D(Write_register), .A_Q0(Read_register_1), .A_Q1(Read_register_2),
@@ -112,7 +114,9 @@ module proc(
 	//Immediate Generator
 	always @(Opcode)
 	begin
-		case(Opcode)
+	   imm_gen_output <= 32'd0;
+	   
+		casez(Opcode)
 			`OPCODE_OPIMM: imm_gen_output <= { {20{instr_read[31]}}, instr_read[31 : 20] }; //CHECKED
 			`OPCODE_STORE: imm_gen_output <= { {20{instr_read[31]}}, instr_read[31 : 25], instr_read[11 : 7] }; //CHECKED
 			`OPCODE_LOAD: imm_gen_output <= { {20{instr_read[31]}}, instr_read[31 : 20] }; //CHECKED
@@ -129,8 +133,10 @@ module proc(
 	
 
 	//ALU 
-	MUX_2x1_32 MUX_ALU_1(.I0(Read_data_1), .I1(instr_adr), .S(ALUSrc1), .Y(ALU_A)); //CHECKED
+	MUX_2x1_32 MUX_ALU_1(.I0(Read_data_1), .I1(instr_adr), .S(ALUSrc1), .Y(ALU_A_1)); //CHECKED
 	MUX_2x1_32 MUX_ALU_2(.I0(Read_data_2), .I1(imm_gen_output), .S(ALUSrc), .Y(ALU_B)); //CHECKED
+	MUX_2x1_32 MUX_ALU_1_5(.I0(ALU_A_1), .I1(32'd0), .S(ALUSrc1_5), .Y(ALU_A));
+	
 	alu ALU(.S(ALU_control), .A(ALU_A), .B(ALU_B), .CMP(Zero), .Q(ALU_result)); //CHECKED
 	
 
