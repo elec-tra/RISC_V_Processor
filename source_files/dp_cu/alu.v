@@ -105,9 +105,9 @@ output reg [ 31 : 0 ] Q
 				`ALU_SRA_OP: Q = $signed(A) >>> $signed(B);
 				`ALU_SRL_OP: Q = A >> B;
 
-				`ALU_SLT_OP: begin Q = ($signed(A) < $signed(B)) ? 32'd1 : 32'd0; 
+				`ALU_SLT_OP: /*begin Q = ($signed(A) < $signed(B)) ? 32'd1 : 32'd0; 
 							 CMP = ($signed(A) < $signed(B)) ? 1 : 0;
-							 end 
+							 end */ Q = $signed(A) + $signed(B);
 
 				`ALU_SLTU_OP: begin Q = (A < B) ? 32'd1 : 32'd0; 
 				              CMP = (A < B) ? 1 : 0;
@@ -132,9 +132,10 @@ output reg [ 31 : 0 ] Q
 				`ALU_SRAI_OP: Q = $signed(A) >>> $signed(B[4 : 0]);
 				`ALU_SRLI_OP: Q = A >> B[4 : 0];
 
-				`ALU_SLTI_OP: begin Q = ($signed(A) < $signed(B)) ? 32'd1 : 32'd0; 
-							 CMP = ($signed(A) < $signed(B)) ? 1 : 0;
-							 end 
+				`ALU_SLTI_OP: //begin Q = ($signed(A) < $signed(B)) ? 32'd1 : 32'd0; 
+							// CMP = ($signed(A) < $signed(B)) ? 1 : 0;
+							// end  
+							 Q = $signed(A) + $signed(B);
 
 				`ALU_SLTIU_OP: begin Q = (A < B) ? 32'd1 : 32'd0; 
 				              CMP = (A < B) ? 1 : 0;

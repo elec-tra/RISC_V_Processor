@@ -68,7 +68,7 @@ module ctrl(
         wait_for_data_read = 2'b10,
         wait_for_data_write = 2'b11;
     
-    reg [1:0] stateMoore_reg, stateMoore_next;
+    reg[1:0] stateMoore_reg, stateMoore_next;
 
     always @(posedge CLK, posedge RES)
     begin
@@ -82,7 +82,7 @@ module ctrl(
         end
     end
     
-    always @(stateMoore_reg, instr_gnt, instr_r_valid, opcode, data_gnt, data_r_valid)
+    always @(stateMoore_reg, instr_gnt, instr_r_valid, opcode)
     begin
         // store current state as next, required: when no case statement is satisfied
         stateMoore_next = stateMoore_reg;
@@ -110,17 +110,10 @@ module ctrl(
                 instr_req = 1'b1;           // Read request
                 if(instr_gnt == 1'b1)
                 begin
-                    stateMoore_next = wait_for_instruction;
-                end
-            end
-                    
-            wait_for_instruction:
-            begin
-                instr_req = 1'b0;
-                if(instr_r_valid == 1'b1)
-                begin
+                    instr_req = 1'b0;
+                    if(instr_r_valid == 1'b1)
+                    begin
                     casez(opcode)
-                    
                         7'b0110111:     //LUI
                         begin
                             ALUSrcMux1 = 1'b0;      // A = don't care
@@ -128,7 +121,6 @@ module ctrl(
                             ALUSrcMux1_S = 1'b1;    // A = 0
                             ALUOp = 2'b10;
                             write_enable = 1'b1;
-                            stateMoore_next = Ready;
                         end
                         
                         7'b0010111:     //AUIPC
@@ -137,7 +129,6 @@ module ctrl(
                             ALUSrcMux2 = 1'b1;      // B = Immediate value
                             ALUOp = 2'b10;
                             write_enable = 1'b1;
-                            stateMoore_next = Ready;
                         end
                         
                         7'b0010011:     //I-type Instruction
@@ -146,7 +137,6 @@ module ctrl(
                             ALUSrcMux2 = 1'b1;      // B = Immediate value
                             ALUOp = 2'b00;
                             write_enable = 1'b1;
-                            stateMoore_next = Ready;
                         end
                         
                         7'b0110011:     //R-type Instruction
@@ -155,7 +145,6 @@ module ctrl(
                             ALUSrcMux2 = 1'b0;      // B = Q1
                             ALUOp = 2'b01;
                             write_enable = 1'b1;
-                            stateMoore_next = Ready;
                         end
                         
                         7'b1101111:     //JAL Instruction
@@ -167,7 +156,6 @@ module ctrl(
                             write_enable = 1'b1;
                             reg_pc_select = 1'b0;   
                             MODE = 1'b1;
-                            stateMoore_next = Ready;
                         end
                         
                         7'b1100111:     //JALR Instruction
@@ -179,7 +167,6 @@ module ctrl(
                             write_enable = 1'b1;
                             reg_pc_select = 1'b1;   
                             MODE = 1'b1;
-                            stateMoore_next = Ready;
                         end
                         
                         7'b1100011:     //Branch Instruction
@@ -191,7 +178,6 @@ module ctrl(
                             write_enable = 1'b0;
                             reg_pc_select = 1'b0;   
                             MODE = 1'b1;
-                            stateMoore_next = Ready;
                         end
                         
                         7'b0000011:     //LW Instruction
@@ -202,13 +188,25 @@ module ctrl(
                             ALUOp = 2'b00;
                             write_enable = 1'b0;
                             reg_pc_select = 1'b0;
-                            alu_dm_select = 1'b1;
+                            alu_dm_select = 1'b0;
                             MODE = 1'b0;
                             data_write_enable = 1'b0;
                             data_req = 1'b1;        // Send Read request
                             if(data_gnt == 1'b1)
                             begin
-                                stateMoore_next = wait_for_data_read;
+                                data_req = 1'b0;
+                                if(instr_r_valid == 1'b1)
+                                begin
+                                    ALUSrcMux1 = 1'b0;      // A = Q0 Value
+                                    ALUSrcMux2 = 1'b1;      // Select Immediate Value
+                                    ALUSrcMux2_S = 1'b0;    // B = ALUSrcMux2 Value
+                                    ALUOp = 2'b00;
+                                    write_enable = 1'b1;
+                                    reg_pc_select = 1'b0;
+                                    alu_dm_select = 1'b1;   // Data memory output
+                                    MODE = 1'b0;
+                                    stateMoore_next = Ready;
+                                end
                             end
                         end
                         
@@ -226,13 +224,13 @@ module ctrl(
                             data_req = 1'b1;        // Send Write request
                             if(data_gnt == 1'b1)
                             begin
-                                stateMoore_next = wait_for_data_write;
+                                data_req = 1'b0;
+                                stateMoore_next = Ready;
                             end
                         end
                         
                         default:
                         begin
-                            stateMoore_next = Ready;
                             ALUSrcMux1 = 1'b0;
                             ALUSrcMux2 = 1'b0;
                             ALUSrcMux1_S = 1'b0;    // A = ALUSrcMux1 Value
@@ -243,30 +241,9 @@ module ctrl(
                             write_enable = 1'b0;
                         end
                     endcase
-                end
-            end
-            
-            wait_for_data_read:
-            begin
-                data_req = 1'b0;
-                if(data_r_valid == 1'b1)
-                begin
-                    ALUSrcMux1 = 1'b0;      // A = Q0 Value
-                    ALUSrcMux2 = 1'b1;      // Select Immediate Value
-                    ALUSrcMux2_S = 1'b0;    // B = ALUSrcMux2 Value
-                    ALUOp = 2'b00;
-                    write_enable = 1'b1;
-                    reg_pc_select = 1'b0;
-                    alu_dm_select = 1'b1;   // Data memory output
-                    MODE = 1'b0;
                     stateMoore_next = Ready;
+                    end
                 end
-            end
-            
-            wait_for_data_write:
-            begin
-                data_req = 1'b0;
-                stateMoore_next = Ready;
             end
             
             default:
