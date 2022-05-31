@@ -72,7 +72,7 @@ module system_tb();
         end
         
         always begin
-            #40 CLK = ~CLK;
+            #20 CLK = ~CLK;
         end    
     
         initial 
@@ -81,7 +81,7 @@ module system_tb();
             @(negedge CLK);
             RES = 1'b0;
         
-            repeat(10) begin
+            repeat(3000) begin
                 @(negedge CLK);
             end 
         $finish;

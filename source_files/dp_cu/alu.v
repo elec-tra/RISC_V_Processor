@@ -141,7 +141,9 @@ output reg [ 31 : 0 ] Q
 				              CMP = (A < B) ? 1 : 0;
 				              end
 
-				`ALU_LUI_OP: Q = A + B;
+				`ALU_LUI_OP: begin Q = A + B;
+				                   CMP = 1;
+				                   end
 
 				/*`ALU_AIUPC_OP: Q = B + A;			  
 

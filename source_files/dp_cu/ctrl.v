@@ -90,7 +90,7 @@ module ctrl(
         //Default Signals
         MODE = 1'b0;                        // Program counter increment by 4
         
-        instr_req = 1'b0;
+        instr_req = 1'b1;
         ALUSrcMux1 = 1'b0;
         ALUSrcMux1_S = 1'b0;    // A = ALUSrcMux1 Value
         ALUSrcMux2 = 1'b0;
@@ -107,7 +107,7 @@ module ctrl(
         casez(stateMoore_reg)
             Ready:
             begin
-                instr_req = 1'b1;           // Read request
+                //instr_req = 1'b1;           // Read request
                 if(instr_gnt == 1'b1)
                 begin
                     stateMoore_next = wait_for_instruction;
@@ -116,7 +116,7 @@ module ctrl(
                     
             wait_for_instruction:
             begin
-                instr_req = 1'b0;
+                //instr_req = 1'b0;
                 if(instr_r_valid == 1'b1)
                 begin
                     casez(opcode)
@@ -175,7 +175,7 @@ module ctrl(
                             ALUSrcMux1 = 1'b1;      // A = PC Value
                             ALUSrcMux2 = 1'b0;      // Don't Care
                             ALUSrcMux2_S = 1'b1;    // B = Constant 4
-                            ALUOp = 2'b11;
+                            ALUOp = 2'b10;
                             write_enable = 1'b1;
                             reg_pc_select = 1'b1;   
                             MODE = 1'b1;

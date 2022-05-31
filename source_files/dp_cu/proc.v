@@ -109,7 +109,9 @@ module proc(
 			.data_r_valid(data_r_valid)); //CHECKED
 
 	//Register Set
-	regset Register_Set(.D(Write_data), .A_D(Write_register), .A_Q0(Read_register_1), .A_Q1(Read_register_2),
+	//wire [31 : 0] write_addr_reg_wire;
+	//REG_DRE_32 write_addr_reg(.D(Write_register), .Q(write_addr_reg_wire), .CLK(clk), .RES(res), .ENABLE(~res)); //TEMP
+	regset Register_Set(.D(Write_data), .A_D(Write_register), .A_Q0(Read_register_1), .A_Q1(Read_register_2), // TEMP
 	                    .write_enable(RegWrite), .RES(res), .CLK(clk), .Q0(Read_data_1), .Q1(Read_data_2)); //CHECKED
 
 	//Immediate Generator
@@ -147,6 +149,8 @@ module proc(
 	//Not a part of processor so only need to use outside ports for input and output
 	assign data_adr = ALU_result;
 	assign data_write = Read_data_2;
+	//wire [31 : 0] alures;
+	//REG_DRE_32 reg_write_back(.D(ALU_result), .Q(alures), .CLK(clk), .RES(res), .ENABLE(~res)); //TEMP
 	MUX_2x1_32 MUX_DATA(.I0(ALU_result), .I1(data_read), .S(MemtoReg), .Y(Write_data)); //CHECKED
 
 endmodule
