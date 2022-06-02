@@ -59,7 +59,10 @@ module ctrl(
     output reg data_write_enable,   // 0-means read; 1-means write 
     output reg data_req,
     input wire data_gnt,
-    input wire data_r_valid
+    input wire data_r_valid,
+    
+    //Pipeline
+    output reg instr_pipeline
 );
 
     localparam [1:0]
@@ -75,10 +78,12 @@ module ctrl(
         if(RES == 1'b1)            // reset
         begin
             stateMoore_reg <= Ready;
+            instr_pipeline <= 0;
         end
         else
         begin
             stateMoore_reg <= stateMoore_next;
+            instr_pipeline <= ~instr_pipeline;
         end
     end
     
@@ -103,6 +108,9 @@ module ctrl(
         //Data Memory
         data_write_enable = 1'b0;         // Default state is read
         data_req = 1'b0;
+        
+        //Pipeline
+        instr_pipeline = 1'b0;
         
         casez(stateMoore_reg)
             Ready:
