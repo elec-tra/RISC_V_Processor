@@ -24,6 +24,9 @@ module ctrl(
     //Control Unit Management port
     input wire RES,
     input wire CLK,
+    
+    //Program Counter
+    output reg pc_enable,
 
     //CPU Instruction input port
     input wire [6 : 0] opcode,
@@ -56,43 +59,54 @@ module ctrl(
     output reg alu_dm_select,       // 0 means ALU Output value, 1 means Data Memory value
     
     //Data Memory Control port
-    output reg data_write_enable,   // 0-means read; 1-means write 
+    output reg  data_write_enable,   // 0-means read; 1-means write 
     output reg data_req,
     input wire data_gnt,
     input wire data_r_valid,
     
-    //Pipeline
-    output reg instr_pipeline
+    //Interrrupt
+    input wire irq,
+    input wire irq_status,
+    output reg irq_ack,
+    output reg irq_status_update,
+    output reg irq_context,
+    output reg irq_addr_sel,
+    output reg bckup_reg,
+    output reg mret_sel,
+    
+    //Load Word
+    output reg instr_reg_mux
 );
 
-    localparam [1:0]
-        Ready = 2'b00,
-        wait_for_instruction = 2'b01,
-        wait_for_data_read = 2'b10,
-        wait_for_data_write = 2'b11;
+    localparam [2:0]
+        Ready = 3'b000,
+        wait_for_instruction = 3'b001,
+        wait_for_regset_write = 3'b010,
+        wait_for_data_read = 3'b011,
+        wait_for_data_write = 3'b100,
+        process_interrupt = 3'b101;
     
-    reg [1:0] stateMoore_reg, stateMoore_next;
+    reg [2:0] stateMoore_reg, stateMoore_next;
 
     always @(posedge CLK, posedge RES)
     begin
         if(RES == 1'b1)            // reset
         begin
             stateMoore_reg <= Ready;
-            instr_pipeline <= 0;
         end
         else
         begin
             stateMoore_reg <= stateMoore_next;
-            instr_pipeline <= ~instr_pipeline;
         end
     end
     
-    always @(stateMoore_reg, instr_gnt, instr_r_valid, opcode, data_gnt, data_r_valid)
+    always @(stateMoore_reg, instr_gnt, instr_r_valid, opcode, data_gnt, data_r_valid, irq, irq_status)
     begin
         // store current state as next, required: when no case statement is satisfied
         stateMoore_next = stateMoore_reg;
         
         //Default Signals
+        pc_enable = 1'b0;
         MODE = 1'b0;                        // Program counter increment by 4
         
         instr_req = 1'b1;
@@ -109,16 +123,31 @@ module ctrl(
         data_write_enable = 1'b0;         // Default state is read
         data_req = 1'b0;
         
-        //Pipeline
-        instr_pipeline = 1'b0;
+        //Interrupt
+        irq_status_update = 1'b0;
+        irq_context = 1'b0;
+        irq_ack = 1'b0;
+        irq_addr_sel = 1'b0;
+        bckup_reg = 1'b0;
+        mret_sel = 1'b0;
+        
+        //Load Word
+        instr_reg_mux = 1'b0;
         
         casez(stateMoore_reg)
             Ready:
             begin
+                pc_enable = 1'b0;
                 //instr_req = 1'b1;           // Read request
                 if(instr_gnt == 1'b1)
                 begin
                     stateMoore_next = wait_for_instruction;
+                end
+                
+                //Interrrupt Section:
+                if((irq == 1'b1) && (irq_status == 0))
+                begin
+                    stateMoore_next = process_interrupt;
                 end
             end
                     
@@ -136,7 +165,7 @@ module ctrl(
                             ALUSrcMux1_S = 1'b1;    // A = 0
                             ALUOp = 2'b10;
                             write_enable = 1'b1;
-                            stateMoore_next = Ready;
+                            stateMoore_next = wait_for_regset_write;
                         end
                         
                         7'b0010111:     //AUIPC
@@ -145,7 +174,7 @@ module ctrl(
                             ALUSrcMux2 = 1'b1;      // B = Immediate value
                             ALUOp = 2'b10;
                             write_enable = 1'b1;
-                            stateMoore_next = Ready;
+                            stateMoore_next = wait_for_regset_write;
                         end
                         
                         7'b0010011:     //I-type Instruction
@@ -154,7 +183,7 @@ module ctrl(
                             ALUSrcMux2 = 1'b1;      // B = Immediate value
                             ALUOp = 2'b00;
                             write_enable = 1'b1;
-                            stateMoore_next = Ready;
+                            stateMoore_next = wait_for_regset_write;
                         end
                         
                         7'b0110011:     //R-type Instruction
@@ -163,7 +192,7 @@ module ctrl(
                             ALUSrcMux2 = 1'b0;      // B = Q1
                             ALUOp = 2'b01;
                             write_enable = 1'b1;
-                            stateMoore_next = Ready;
+                            stateMoore_next = wait_for_regset_write;
                         end
                         
                         7'b1101111:     //JAL Instruction
@@ -175,7 +204,7 @@ module ctrl(
                             write_enable = 1'b1;
                             reg_pc_select = 1'b0;   
                             MODE = 1'b1;
-                            stateMoore_next = Ready;
+                            stateMoore_next = wait_for_regset_write;
                         end
                         
                         7'b1100111:     //JALR Instruction
@@ -187,7 +216,7 @@ module ctrl(
                             write_enable = 1'b1;
                             reg_pc_select = 1'b1;   
                             MODE = 1'b1;
-                            stateMoore_next = Ready;
+                            stateMoore_next = wait_for_regset_write;
                         end
                         
                         7'b1100011:     //Branch Instruction
@@ -238,7 +267,7 @@ module ctrl(
                             end
                         end
                         
-                        default:
+                        7'b1110011:     // MRET Interrupt
                         begin
                             stateMoore_next = Ready;
                             ALUSrcMux1 = 1'b0;
@@ -249,14 +278,63 @@ module ctrl(
                             alu_dm_select = 1'b0;
                             ALUOp = 2'b00;
                             write_enable = 1'b0;
+                            //Interrupt
+                            irq_status_update = 1'b1;
+                            irq_context = 1'b0;     // ISR is Over
+                            MODE = 1'b1;            // Load PC = Backup register
+                            irq_addr_sel = 1'b0;
+                            bckup_reg = 1'b0;
+                            mret_sel = 1'b1;
+                        end
+                        
+                        default:
+                        begin
+                            stateMoore_next = Ready;
+                            pc_enable = 1'b0;
+                            ALUSrcMux1 = 1'b0;
+                            ALUSrcMux2 = 1'b0;
+                            ALUSrcMux1_S = 1'b0;    // A = ALUSrcMux1 Value
+                            ALUSrcMux2_S = 1'b0;
+                            reg_pc_select = 1'b0;
+                            alu_dm_select = 1'b0;
+                            ALUOp = 2'b00;
+                            write_enable = 1'b0;
+                            //Interrupt
+                            irq_status_update = 1'b0;
+                            irq_context = 1'b0;
+                            irq_ack = 1'b0;
+                            irq_addr_sel = 1'b0;
+                            bckup_reg = 1'b0;
+                            mret_sel = 1'b0;
+                            //Load Word
+                            instr_reg_mux = 1'b0;
                         end
                     endcase
+                end
+                
+                //Interrrupt Section:
+                if((irq == 1'b1) && (irq_status == 0))
+                begin
+                    stateMoore_next = process_interrupt;
+                end
+            end
+            
+            wait_for_regset_write:
+            begin
+                stateMoore_next = Ready;
+                pc_enable = 1'b1;
+                
+                //Interrrupt Section:
+                if((irq == 1'b1) && (irq_status == 0))
+                begin
+                    stateMoore_next = process_interrupt;
                 end
             end
             
             wait_for_data_read:
             begin
                 data_req = 1'b0;
+                instr_reg_mux = 1'b1;
                 if(data_r_valid == 1'b1)
                 begin
                     ALUSrcMux1 = 1'b0;      // A = Q0 Value
@@ -267,7 +345,13 @@ module ctrl(
                     reg_pc_select = 1'b0;
                     alu_dm_select = 1'b1;   // Data memory output
                     MODE = 1'b0;
-                    stateMoore_next = Ready;
+                    stateMoore_next = wait_for_regset_write;
+                end
+                
+                //Interrrupt Section:
+                if((irq == 1'b1) && (irq_status == 0))
+                begin
+                    stateMoore_next = process_interrupt;
                 end
             end
             
@@ -275,11 +359,29 @@ module ctrl(
             begin
                 data_req = 1'b0;
                 stateMoore_next = Ready;
+                
+                //Interrrupt Section:
+                if((irq == 1'b1) && (irq_status == 0))
+                begin
+                    stateMoore_next = process_interrupt;
+                end
+            end
+            
+            process_interrupt:
+            begin
+                irq_ack = 1'b1;
+                irq_status_update = 1'b1;
+                irq_context = 1'b1;
+                irq_addr_sel = 1'b1;
+                bckup_reg = 1'b1;
+                MODE = 1'b1;
+                stateMoore_next = Ready;                
             end
             
             default:
             begin
                 stateMoore_next = Ready;
+                pc_enable = 1'b0;
                 ALUSrcMux1 = 1'b0;
                 ALUSrcMux2 = 1'b0;
                 ALUSrcMux1_S = 1'b0;    // A = ALUSrcMux1 Value
@@ -288,6 +390,15 @@ module ctrl(
                 alu_dm_select = 1'b0;
                 ALUOp = 2'b00;
                 write_enable = 1'b0;
+                //Interrupt
+                irq_status_update = 1'b0;
+                irq_context = 1'b0;
+                irq_ack = 1'b0;
+                irq_addr_sel = 1'b0;
+                bckup_reg = 1'b0;
+                mret_sel = 1'b0;
+                //Load Word
+                instr_reg_mux = 1'b0;
             end
             
         endcase
