@@ -3,9 +3,10 @@
 module system_tb();
 
     wire clk;
-    wire BOARD;
+    wire BOARD
     
-    system sys(.BOARD_CLK(), .BOARD_RESN);
+    system sys(.BOARD_CLK(),
+    .BOARD_RESN);
 
 `ifdef XILINX_SIMULATOR
 // Vivado Simulator (XSim) specific code

@@ -18,26 +18,38 @@ module proc(
 	input [31 : 0] data_read,
 	input data_gnt,
 	input data_r_valid,
-	//input irq,
-	//input [4 : 0] irq_id,
+	input irq,
+	input [4 : 0] irq_id,
 	
 	output [31 : 0] instr_adr,
 	output instr_req,
     output [31 : 0] data_write,
 	output [31 : 0] data_adr,
 	output data_req,
-	output data_write_enable
+	output data_write_enable,
 	//output [3 : 0] data_be,
-	//output irq_ack,
-	//output [4 : 0] irq_ack_id
+	output irq_ack,
+	output [4 : 0] irq_ack_id
 );
 
 	//-----Wires & Registers-----
 
 	//PC
 	wire PCSrc;
-	wire [31 : 0] Jmp_adr;
-	wire reg_pc_select;
+	wire pc_enable;
+	wire [31 : 0] Jmp_adr; // Normal Branch
+	wire [31 : 0] irq_adr; // Interrupt routine vector address
+	wire [31 : 0] ret_adr; // Backup register address
+	wire [31 : 0] j_adr_1; // MUX1 output
+	wire irq_addr_sel;     // MUX1 selection
+	wire [31 : 0] j_adr_2; // MUX2 output
+	wire mret_sel;         // MUX2 selection
+	wire bckup_reg; // Control signal for Backup register
+	wire reg_pc_select; 
+
+	//Instruction memory
+	//wire [31 : 0] instr_read;
+	//wire [31 : 0] instr_reg;
 
 	//Control Unit
 	wire [6 : 0] Opcode;
@@ -49,6 +61,11 @@ module proc(
 	wire ALUSrc1_5; // for zero
 	wire ALUSrc2_5; // for 4
 	wire RegWrite;
+	//wire instr_pipeline; // for selecting pipelined instruction in Load / Store instructions 
+	wire irq_context; // Input from CU
+	wire irq_status_update; // input from CU
+	reg irq_status_reg; // Output to CU
+	reg [4 : 0] irq_ack_id_reg; // Output to CU
 
 	//Register Set
 	wire [4 : 0] Read_register_1;
@@ -74,7 +91,8 @@ module proc(
 	//-----Wire Assignments-----
 
 	//PC
-	assign PCSrc = Branch & Zero;
+	assign PCSrc = (Branch & Zero) | Branch; // Branch ORed due to Interrupt case
+	assign irq_adr = (irq_id << 2) + 32'h1C00_8000; 
 
 	//Control Unit
 	assign Opcode = instr_read[6 : 0]; //One input to CU 
@@ -94,19 +112,40 @@ module proc(
 
 	//PC
 	MUX_2x1_32 JMP_ADR_SELECT(.I0(instr_adr + imm_gen_output_lshifted), .I1(Read_data_1 + imm_gen_output_lshifted), .S(reg_pc_select), .Y(Jmp_adr)); //CHECKED
-	pc PC(.CLK(clk), .RES(res), .ENABLE(!res), .MODE(PCSrc), .D(Jmp_adr), .PC_OUT(instr_adr)); //CHECKED
+	REG_DRE_32 Instruction_Backup_Reg(.D(instr_adr), .Q(ret_adr), .CLK(clk), .RES(res), .ENABLE(bckup_reg));
+	MUX_2x1_32 Instruction_Select_1(.I0(Jmp_adr), .I1(irq_adr), .S(irq_addr_sel), .Y(j_adr_1));
+	MUX_2x1_32 Instruction_Select_2(.I0(j_adr_1), .I1(ret_adr), .S(mret_sel), .Y(j_adr_2));
+	pc PC(.CLK(clk), .RES(res), .ENABLE(pc_enable), .MODE(PCSrc), .D(j_adr_2), .PC_OUT(instr_adr)); //CHECKED
 
 	//Instruction Memory (TODO: Instantiation)
 	//Not a part of processor so only need to use outside ports for input and output
+	// Pipeline try
+	//REG_DRE_32 INSTR_PIPELINE_REG(.D(instr_read_in), .Q(instr_reg), .CLK(clk), .RES(res), .ENABLE(~res));
+	//MUX_2x1_32 INSTR_PIPELINE_MUX(.I0(instr_read_in), .I1(instr_reg), .S(instr_pipeline), .Y(instr_read));
 
 	//Control unit (TODO: Instantiation)
+
+	always @(posedge clk)
+	begin
+		if(irq_status_update)
+        	irq_status_reg <= irq_context;
+	end
+
+	always @(posedge clk)
+	begin
+		if(irq_status_update)
+        	irq_ack_id_reg <= irq_id;
+	end
+
 	ctrl CU(.RES(res), .CLK(clk), .opcode(Opcode), .MODE(Branch), 
 			.instr_req(instr_req), .instr_gnt(instr_gnt), .instr_r_valid(instr_r_valid),
 			.write_enable(RegWrite), .ALUSrcMux1(ALUSrc1), .ALUSrcMux1_S(ALUSrc1_5), .ALUSrcMux2(ALUSrc2), 
 			.ALUSrcMux2_S(ALUSrc2_5), .ALUOp(ALUOp), .reg_pc_select(reg_pc_select),
 			.alu_dm_select(MemtoReg),
 			.data_write_enable(data_write_enable), .data_req(data_req), .data_gnt(data_gnt),
-			.data_r_valid(data_r_valid)); //CHECKED
+			.data_r_valid(data_r_valid), .bckup_reg(bckup_reg),
+			.irq_addr_sel(irq_addr_sel), .mret_sel(mret_sel), .irq(irq), .irq_ack(irq_ack), .irq_context(irq_context), .irq_status(irq_status_reg),
+			.irq_status_update(irq_status_update),.pc_enable(pc_enable)); //CHECKED
 
 	//Register Set
 	//wire [31 : 0] write_addr_reg_wire;
@@ -149,8 +188,10 @@ module proc(
 	//Not a part of processor so only need to use outside ports for input and output
 	assign data_adr = ALU_result;
 	assign data_write = Read_data_2;
+	//wire [31 : 0] alureg;
 	//wire [31 : 0] alures;
-	//REG_DRE_32 reg_write_back(.D(ALU_result), .Q(alures), .CLK(clk), .RES(res), .ENABLE(~res)); //TEMP
-	MUX_2x1_32 MUX_DATA(.I0(ALU_result), .I1(data_read), .S(MemtoReg), .Y(Write_data)); //CHECKED
+	//REG_DRE_32 alu_reg_write_back(.D(ALU_result), .Q(alureg), .CLK(clk), .RES(res), .ENABLE(~res)); 
+	//MUX_2x1_32 MUX_INSTR_PIPELINE(.I0(ALU_result), .I1(alureg), .S(instr_pipeline), .Y(alures));
+	MUX_2x1_32 MUX_DATA(.I0(ALU_result), .I1(data_read), .S(MemtoReg), .Y(Write_data)); //Checked
 
 endmodule
