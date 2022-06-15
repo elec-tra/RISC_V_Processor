@@ -90,7 +90,7 @@ proc cpu(
 .clk(CLK),
 .res(RES),
 
-.instr_read(instr_read),
+.instr_read_in(instr_read),
 .instr_gnt(instr_gnt),
 .instr_r_valid(instr_r_valid),
 .instr_adr(instr_adr),
