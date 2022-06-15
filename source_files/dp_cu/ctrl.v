@@ -84,7 +84,7 @@ module ctrl(
         wait_for_regset_write = 3'b010,
         wait_for_data_read = 3'b011,
         wait_for_data_write = 3'b100,
-        process_interrupt = 3'b101;
+        process_interrupt = 3'b110;
     
     reg [2:0] stateMoore_reg, stateMoore_next;
 
@@ -261,6 +261,7 @@ module ctrl(
                             MODE = 1'b0;
                             data_write_enable = 1'b1;
                             data_req = 1'b1;        // Send Write request
+                            instr_req = 1'b0;
                             if(data_gnt == 1'b1)
                             begin
                                 stateMoore_next = wait_for_data_write;
@@ -358,6 +359,7 @@ module ctrl(
             wait_for_data_write:
             begin
                 data_req = 1'b0;
+                pc_enable = 1'b1;
                 stateMoore_next = Ready;
                 
                 //Interrrupt Section:
