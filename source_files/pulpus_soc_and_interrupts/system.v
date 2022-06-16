@@ -35,6 +35,11 @@ module system(
     wire instr_r_valid;
 	wire [31 : 0] instr_adr;
     wire instr_req;
+    
+    wire irq;
+    wire [4 : 0] irq_id;
+    wire irq_ack;
+	wire [4 : 0] irq_ack_id;
 
 
 pulpus psoc(
@@ -77,13 +82,14 @@ pulpus psoc(
          .DATA_BE(4'b1111),
          .DATA_ADDR(data_adr),
          .DATA_WDATA(data_write),
-         .DATA_RDATA(data_read)
-     // Interrupt outputs
-    // output        IRQ,                 // level sensitive IR lines
-     //output  [4:0] IRQ_ID,
-     // Interrupt inputs
-     //input         IRQ_ACK,             // irq ack
-     //input   [4:0] IRQ_ACK_ID
+         .DATA_RDATA(data_read),
+         
+         //Interrupt outputs
+         .IRQ(irq),                 // level sensitive IR lines
+         .IRQ_ID(irq_id),
+         //Interrupt inputs
+         .IRQ_ACK(irq_ack),             // irq ack
+         .IRQ_ACK_ID(irq_ack_id)
      );
      
 proc cpu(
@@ -102,7 +108,11 @@ proc cpu(
 .data_write(data_write),
 .data_adr(data_adr),
 .data_req(data_req),
-.data_write_enable(data_write_enable)
+.data_write_enable(data_write_enable),
+.irq(irq),
+.irq_id(irq_id),
+.irq_ack(irq_ack),
+.irq_ack_id(irq_ack_id)
 );
 
 `ifdef XILINX_SIMULATOR

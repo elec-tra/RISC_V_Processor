@@ -84,7 +84,8 @@ module ctrl(
         wait_for_regset_write = 3'b010,
         wait_for_data_read = 3'b011,
         wait_for_data_write = 3'b100,
-        process_interrupt = 3'b110;
+        process_interrupt = 3'b101,
+        send_interrupt_acknowledge = 3'b110;
     
     reg [2:0] stateMoore_reg, stateMoore_next;
 
@@ -270,6 +271,7 @@ module ctrl(
                         
                         7'b1110011:     // MRET Interrupt
                         begin
+                            pc_enable = 1'b1;
                             stateMoore_next = Ready;
                             ALUSrcMux1 = 1'b0;
                             ALUSrcMux2 = 1'b0;
@@ -371,13 +373,20 @@ module ctrl(
             
             process_interrupt:
             begin
-                irq_ack = 1'b1;
+                pc_enable = 1'b1;
+                MODE = 1'b1;
+                bckup_reg = 1'b1;
+                irq_addr_sel = 1'b1;
+                
                 irq_status_update = 1'b1;
                 irq_context = 1'b1;
-                irq_addr_sel = 1'b1;
-                bckup_reg = 1'b1;
-                MODE = 1'b1;
-                stateMoore_next = Ready;                
+                stateMoore_next = send_interrupt_acknowledge;                
+            end
+            
+            send_interrupt_acknowledge:
+            begin
+                irq_ack = 1'b1;
+                stateMoore_next = Ready;
             end
             
             default:
