@@ -108,6 +108,9 @@ module proc(
 
 	//ALU
 	assign ALU_control = {instr_read[30], instr_read[14 : 12], ALUOp};
+	
+	//Interrupt
+	assign irq_ack_id = irq_ack_id_reg;
 
 	//-----Component definitions-----
 
@@ -126,16 +129,28 @@ module proc(
 
 	//Control unit (TODO: Instantiation)
 
-	always @(posedge clk)
+	always @(posedge clk, posedge res)
 	begin
-		if(irq_status_update)
+	    if(res == 1'b1)            // reset
+        begin
+            irq_status_reg <= 1'b0;
+        end
+		else if(irq_status_update)
+		begin
         	irq_status_reg <= irq_context;
+        end
 	end
 
-	always @(posedge clk)
+	always @(posedge clk, posedge res)
 	begin
-		if(irq_status_update)
+	    if(res == 1'b1)            // reset
+        begin
+            irq_ack_id_reg <= 5'b00000;
+        end
+        else if(irq_status_update)
+        begin
         	irq_ack_id_reg <= irq_id;
+        end
 	end
 
 	ctrl CU(.RES(res), .CLK(clk), .opcode(Opcode), .MODE(Branch), 
