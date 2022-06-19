@@ -73,6 +73,7 @@ module ctrl(
     output reg irq_addr_sel,
     output reg bckup_reg,
     output reg mret_sel,
+    output reg irq_pc_mode,
     
     //Load Word
     output reg instr_reg_mux
@@ -80,12 +81,13 @@ module ctrl(
 
     localparam [2:0]
         Ready = 3'b000,
-        wait_for_instruction = 3'b001,
-        wait_for_regset_write = 3'b010,
-        wait_for_data_read = 3'b011,
-        wait_for_data_write = 3'b100,
-        process_interrupt = 3'b101,
-        send_interrupt_acknowledge = 3'b110;
+        instruction_fetch = 3'b001,
+        process_instruction = 3'b010,
+        wait_for_regset_write = 3'b011,
+        wait_for_data_read = 3'b100,
+        wait_for_data_write = 3'b101,
+        process_interrupt = 3'b110,
+        send_interrupt_acknowledge = 3'b111;
     
     reg [2:0] stateMoore_reg, stateMoore_next;
 
@@ -110,7 +112,7 @@ module ctrl(
         pc_enable = 1'b0;
         MODE = 1'b0;                        // Program counter increment by 4
         
-        instr_req = 1'b1;
+        instr_req = 1'b0;
         ALUSrcMux1 = 1'b0;
         ALUSrcMux1_S = 1'b0;    // A = ALUSrcMux1 Value
         ALUSrcMux2 = 1'b0;
@@ -131,18 +133,32 @@ module ctrl(
         irq_addr_sel = 1'b0;
         bckup_reg = 1'b0;
         mret_sel = 1'b0;
+        irq_pc_mode = 1'b0;
         
         //Load Word
-        instr_reg_mux = 1'b0;
+        instr_reg_mux = 1'b1;
         
         casez(stateMoore_reg)
             Ready:
             begin
-                pc_enable = 1'b0;
-                //instr_req = 1'b1;           // Read request
+                instr_req = 1'b1;
                 if(instr_gnt == 1'b1)
                 begin
-                    stateMoore_next = wait_for_instruction;
+                    stateMoore_next = instruction_fetch;
+                end
+                
+                //Interrrupt Section:
+                if((irq == 1'b1) && (irq_status == 0))
+                begin
+                    stateMoore_next = process_interrupt;
+                end
+            end
+            
+            instruction_fetch:
+            begin
+                if(instr_r_valid == 1'b1)
+                begin
+                    stateMoore_next = process_instruction;
                 end
                 
                 //Interrrupt Section:
@@ -152,11 +168,8 @@ module ctrl(
                 end
             end
                     
-            wait_for_instruction:
+            process_instruction:
             begin
-                //instr_req = 1'b0;
-                if(instr_r_valid == 1'b1)
-                begin
                     casez(opcode)
                     
                         7'b0110111:     //LUI
@@ -227,7 +240,9 @@ module ctrl(
                             ALUSrcMux2_S = 1'b0;    // B = Q1 Value
                             ALUOp = 2'b11;
                             write_enable = 1'b0;
-                            reg_pc_select = 1'b0;   
+                            reg_pc_select = 1'b0;
+                            
+                            pc_enable = 1'b1;
                             MODE = 1'b1;
                             stateMoore_next = Ready;
                         end
@@ -284,7 +299,7 @@ module ctrl(
                             //Interrupt
                             irq_status_update = 1'b1;
                             irq_context = 1'b0;     // ISR is Over
-                            MODE = 1'b1;            // Load PC = Backup register
+                            irq_pc_mode = 1'b1;            // Load PC = Backup register
                             irq_addr_sel = 1'b0;
                             bckup_reg = 1'b0;
                             mret_sel = 1'b1;
@@ -309,11 +324,11 @@ module ctrl(
                             irq_addr_sel = 1'b0;
                             bckup_reg = 1'b0;
                             mret_sel = 1'b0;
+                            irq_pc_mode = 1'b0;
                             //Load Word
                             instr_reg_mux = 1'b0;
                         end
                     endcase
-                end
                 
                 //Interrrupt Section:
                 if((irq == 1'b1) && (irq_status == 0))
@@ -337,7 +352,7 @@ module ctrl(
             wait_for_data_read:
             begin
                 data_req = 1'b0;
-                instr_reg_mux = 1'b1;
+                //instr_reg_mux = 1'b1;
                 if(data_r_valid == 1'b1)
                 begin
                     ALUSrcMux1 = 1'b0;      // A = Q0 Value
@@ -374,7 +389,7 @@ module ctrl(
             process_interrupt:
             begin
                 pc_enable = 1'b1;
-                MODE = 1'b1;
+                irq_pc_mode = 1'b1;
                 bckup_reg = 1'b1;
                 irq_addr_sel = 1'b1;
                 
@@ -408,10 +423,10 @@ module ctrl(
                 irq_addr_sel = 1'b0;
                 bckup_reg = 1'b0;
                 mret_sel = 1'b0;
+                irq_pc_mode = 1'b0;
                 //Load Word
                 instr_reg_mux = 1'b0;
             end
-            
         endcase
     end
     
