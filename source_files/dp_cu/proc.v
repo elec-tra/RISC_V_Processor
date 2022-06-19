@@ -46,6 +46,7 @@ module proc(
 	wire mret_sel;         // MUX2 selection
 	wire bckup_reg; // Control signal for Backup register
 	wire reg_pc_select; 
+	wire irq_pc_mode;
 
 	//Instruction memory
 	wire [31 : 0] instr_read;
@@ -92,7 +93,7 @@ module proc(
 	//-----Wire Assignments-----
 
 	//PC
-	assign PCSrc = (Branch & Zero) | Branch; // Branch ORed due to Interrupt case
+	assign PCSrc = (Branch & Zero) | irq_pc_mode; // Branch ORed due to Interrupt case
 	assign irq_adr = (irq_id << 2) + 32'h1C00_8000; 
 
 	//Control Unit
@@ -104,7 +105,7 @@ module proc(
 	assign Write_register = instr_read[11 : 7];
 
 	//Immediate Generation
-	assign imm_gen_output_lshifted = imm_gen_output << 1'd1; 
+	//assign imm_gen_output_lshifted = imm_gen_output; //<< 1'd1 removed as multiplying 2 does not work for branch ; 
 
 	//ALU
 	assign ALU_control = {instr_read[30], instr_read[14 : 12], ALUOp};
@@ -115,7 +116,7 @@ module proc(
 	//-----Component definitions-----
 
 	//PC
-	MUX_2x1_32 JMP_ADR_SELECT(.I0(instr_adr + imm_gen_output_lshifted), .I1(Read_data_1 + imm_gen_output_lshifted), .S(reg_pc_select), .Y(Jmp_adr)); //CHECKED
+	MUX_2x1_32 JMP_ADR_SELECT(.I0(instr_adr + imm_gen_output), .I1(Read_data_1 + imm_gen_output), .S(reg_pc_select), .Y(Jmp_adr)); //CHECKED
 	REG_DRE_32 Instruction_Backup_Reg(.D(instr_adr), .Q(ret_adr), .CLK(clk), .RES(res), .ENABLE(bckup_reg));
 	MUX_2x1_32 Instruction_Select_1(.I0(Jmp_adr), .I1(irq_adr), .S(irq_addr_sel), .Y(j_adr_1));
 	MUX_2x1_32 Instruction_Select_2(.I0(j_adr_1), .I1(ret_adr), .S(mret_sel), .Y(j_adr_2));
@@ -124,7 +125,7 @@ module proc(
 	//Instruction Memory (TODO: Instantiation)
 	//Not a part of processor so only need to use outside ports for input and output
 	// Pipeline try
-	REG_DRE_32 INSTR_PIPELINE_REG(.D(instr_read_in), .Q(instr_reg), .CLK(clk), .RES(res), .ENABLE(~res));
+	REG_DRE_32 INSTR_PIPELINE_REG(.D(instr_read_in), .Q(instr_reg), .CLK(clk), .RES(res), .ENABLE(instr_r_valid));
 	MUX_2x1_32 INSTR_PIPELINE_MUX(.I0(instr_read_in), .I1(instr_reg), .S(instr_reg_mux), .Y(instr_read));
 
 	//Control unit (TODO: Instantiation)
@@ -161,7 +162,8 @@ module proc(
 			.data_write_enable(data_write_enable), .data_req(data_req), .data_gnt(data_gnt),
 			.data_r_valid(data_r_valid), .bckup_reg(bckup_reg),
 			.irq_addr_sel(irq_addr_sel), .mret_sel(mret_sel), .irq(irq), .irq_ack(irq_ack), .irq_context(irq_context), .irq_status(irq_status_reg),
-			.irq_status_update(irq_status_update),.pc_enable(pc_enable), .instr_reg_mux(instr_reg_mux)); //CHECKED
+			.irq_status_update(irq_status_update),.pc_enable(pc_enable), .instr_reg_mux(instr_reg_mux), 
+			.irq_pc_mode(irq_pc_mode)); //CHECKED
 
 	//Register Set
 	//wire [31 : 0] write_addr_reg_wire;
