@@ -73,10 +73,7 @@ module ctrl(
     output reg irq_addr_sel,
     output reg bckup_reg,
     output reg mret_sel,
-    output reg irq_pc_mode,
-    
-    //Load Word
-    output reg instr_reg_mux
+    output reg irq_pc_mode
 );
 
     localparam [2:0]
@@ -134,9 +131,6 @@ module ctrl(
         bckup_reg = 1'b0;
         mret_sel = 1'b0;
         irq_pc_mode = 1'b0;
-        
-        //Load Word
-        instr_reg_mux = 1'b1;
         
         casez(stateMoore_reg)
             Ready:
@@ -325,8 +319,6 @@ module ctrl(
                             bckup_reg = 1'b0;
                             mret_sel = 1'b0;
                             irq_pc_mode = 1'b0;
-                            //Load Word
-                            instr_reg_mux = 1'b0;
                         end
                     endcase
                 
@@ -352,7 +344,6 @@ module ctrl(
             wait_for_data_read:
             begin
                 data_req = 1'b0;
-                //instr_reg_mux = 1'b1;
                 if(data_r_valid == 1'b1)
                 begin
                     ALUSrcMux1 = 1'b0;      // A = Q0 Value
@@ -424,8 +415,6 @@ module ctrl(
                 bckup_reg = 1'b0;
                 mret_sel = 1'b0;
                 irq_pc_mode = 1'b0;
-                //Load Word
-                instr_reg_mux = 1'b0;
             end
         endcase
     end

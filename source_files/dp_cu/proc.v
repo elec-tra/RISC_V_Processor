@@ -51,7 +51,6 @@ module proc(
 	//Instruction memory
 	wire [31 : 0] instr_read;
 	wire [31 : 0] instr_reg;
-	wire instr_reg_mux;
 
 	//Control Unit
 	wire [6 : 0] Opcode;
@@ -125,8 +124,8 @@ module proc(
 	//Instruction Memory (TODO: Instantiation)
 	//Not a part of processor so only need to use outside ports for input and output
 	// Pipeline try
-	REG_DRE_32 INSTR_PIPELINE_REG(.D(instr_read_in), .Q(instr_reg), .CLK(clk), .RES(res), .ENABLE(instr_r_valid));
-	MUX_2x1_32 INSTR_PIPELINE_MUX(.I0(instr_read_in), .I1(instr_reg), .S(instr_reg_mux), .Y(instr_read));
+	REG_DRE_32 INSTR_PIPELINE_REG(.D(instr_read_in), .Q(instr_read), .CLK(clk), .RES(res), .ENABLE(instr_r_valid));
+	//MUX_2x1_32 INSTR_PIPELINE_MUX(.I0(instr_read_in), .I1(instr_reg), .S(instr_reg_mux), .Y(instr_read));
 
 	//Control unit (TODO: Instantiation)
 
@@ -162,7 +161,7 @@ module proc(
 			.data_write_enable(data_write_enable), .data_req(data_req), .data_gnt(data_gnt),
 			.data_r_valid(data_r_valid), .bckup_reg(bckup_reg),
 			.irq_addr_sel(irq_addr_sel), .mret_sel(mret_sel), .irq(irq), .irq_ack(irq_ack), .irq_context(irq_context), .irq_status(irq_status_reg),
-			.irq_status_update(irq_status_update),.pc_enable(pc_enable), .instr_reg_mux(instr_reg_mux), 
+			.irq_status_update(irq_status_update),.pc_enable(pc_enable),
 			.irq_pc_mode(irq_pc_mode)); //CHECKED
 
 	//Register Set
