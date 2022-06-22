@@ -13,3 +13,4 @@ sw x3, 0(x2)
 lw x5, 0(x1)		#INT_CNTRL
 lui x2, 0x1a10b
 lw x6, 0(x2)		#CFG_REG_LOW reg
+beq x0, x0, 0		#Infinite loop

@@ -1,7 +1,7 @@
 # TIMER_CMP_LOW reg
 lui x2, 0x1a10b		# x2 = 0x1A10_B000
 addi x2, x2, 0x010	# x2 = 0x1A10_B010
-addi x3, x0, 0xF	# x3 = 0x0000_0004
+addi x3, x0, 0xFF	# x3 = 0x0000_0004
 sw x3, 0(x2)
 
 # INT_CNTRL
