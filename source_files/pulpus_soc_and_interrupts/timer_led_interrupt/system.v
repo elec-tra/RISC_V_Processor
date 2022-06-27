@@ -19,8 +19,6 @@ module system(
     wire CLK;
     wire RES;
     
-    reg [3 : 0] button_array;
-    
     // reg test
     reg clk;
    
@@ -53,8 +51,7 @@ pulpus psoc(
      .BOARD_LED_RGB0(BOARD_LED_RGB0),
      .BOARD_LED_RGB1(BOARD_LED_RGB1),
      
-//     .BOARD_BUTTON(BOARD_BUTTON),
-     .BOARD_BUTTON(button_array),
+     .BOARD_BUTTON(BOARD_BUTTON),
      .BOARD_SWITCH(BOARD_SWITCH),
      
      .BOARD_VGA_HSYNC(BOARD_VGA_HSYNC),
@@ -126,19 +123,6 @@ clk=0;
 end
 always
 #5 clk=~clk;
-
-initial
-    begin  
-        button_array = 4'b0000;
-        repeat(125) begin
-            @(negedge CLK);
-        end
-        button_array = 4'b0001;
-        repeat(2) begin
-            @(negedge CLK);
-        end
-        button_array = 4'b0000;
-    end
 `else
 always @(BOARD_CLK)
 clk=BOARD_CLK;
