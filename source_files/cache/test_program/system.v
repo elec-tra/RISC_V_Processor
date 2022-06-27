@@ -19,8 +19,6 @@ module system(
     wire CLK;
     wire RES;
     
-    reg [3 : 0] button_array;
-    
     // reg test
     reg clk;
    
@@ -37,6 +35,12 @@ module system(
     wire instr_r_valid;
 	wire [31 : 0] instr_adr;
     wire instr_req;
+
+    wire [31 : 0] cached_instr_read;
+    wire cached_instr_req;
+    wire [31 : 0] cached_instr_adr;
+    wire cached_instr_gnt;
+    wire cached_instr_rvalid;
     
     wire irq;
     wire [4 : 0] irq_id;
@@ -53,8 +57,7 @@ pulpus psoc(
      .BOARD_LED_RGB0(BOARD_LED_RGB0),
      .BOARD_LED_RGB1(BOARD_LED_RGB1),
      
-//     .BOARD_BUTTON(BOARD_BUTTON),
-     .BOARD_BUTTON(button_array),
+     .BOARD_BUTTON(BOARD_BUTTON),
      .BOARD_SWITCH(BOARD_SWITCH),
      
      .BOARD_VGA_HSYNC(BOARD_VGA_HSYNC),
@@ -99,11 +102,11 @@ proc cpu(
 .clk(CLK),
 .res(RES),
 
-.instr_read_in(instr_read),
-.instr_gnt(instr_gnt),
-.instr_r_valid(instr_r_valid),
-.instr_adr(instr_adr),
-.instr_req(instr_req),
+.instr_read_in(cached_instr_read),
+.instr_gnt(cached_instr_gnt),
+.instr_r_valid(cached_instr_rvalid),
+.instr_adr(cached_instr_adr),
+.instr_req(cached_instr_req),
 
 .data_read(data_read),
 .data_gnt(data_gnt),
@@ -118,6 +121,23 @@ proc cpu(
 .irq_ack_id(irq_ack_id)
 );
 
+instr_cache cache(
+.clk(CLK),
+.res(RES),
+// Interface between processor and cache
+.cached_instr_req(cached_instr_req),
+.cached_instr_adr(cached_instr_adr),
+.cached_instr_gnt(cached_instr_gnt),
+.cached_instr_rvalid(cached_instr_rvalid),
+.cached_instr_read(cached_instr_read),
+// Interface between Cache and main memory
+.instr_req(instr_req),
+.instr_adr(instr_adr),
+.instr_gnt(instr_gnt),
+.instr_rvalid(instr_r_valid),
+.instr_read(instr_read)
+
+);
 `ifdef XILINX_SIMULATOR
 // Vivado Simulator (XSim) specific code
 initial
@@ -126,19 +146,6 @@ clk=0;
 end
 always
 #5 clk=~clk;
-
-initial
-    begin  
-        button_array = 4'b0000;
-        repeat(125) begin
-            @(negedge CLK);
-        end
-        button_array = 4'b0001;
-        repeat(2) begin
-            @(negedge CLK);
-        end
-        button_array = 4'b0000;
-    end
 `else
 always @(BOARD_CLK)
 clk=BOARD_CLK;

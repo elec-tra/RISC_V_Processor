@@ -37,6 +37,12 @@ module system(
     wire instr_r_valid;
 	wire [31 : 0] instr_adr;
     wire instr_req;
+
+    wire [31 : 0] cached_instr_read;
+    wire cached_instr_req;
+    wire [31 : 0] cached_instr_adr;
+    wire cached_instr_gnt;
+    wire cached_instr_rvalid;
     
     wire irq;
     wire [4 : 0] irq_id;
@@ -99,11 +105,11 @@ proc cpu(
 .clk(CLK),
 .res(RES),
 
-.instr_read_in(instr_read),
-.instr_gnt(instr_gnt),
-.instr_r_valid(instr_r_valid),
-.instr_adr(instr_adr),
-.instr_req(instr_req),
+.instr_read_in(cached_instr_read),
+.instr_gnt(cached_instr_gnt),
+.instr_r_valid(cached_instr_rvalid),
+.instr_adr(cached_instr_adr),
+.instr_req(cached_instr_req),
 
 .data_read(data_read),
 .data_gnt(data_gnt),
@@ -118,6 +124,23 @@ proc cpu(
 .irq_ack_id(irq_ack_id)
 );
 
+instr_cache cache(
+.clk(CLK),
+.res(RES),
+// Interface between processor and cache
+.cached_instr_req(cached_instr_req),
+.cached_instr_adr(cached_instr_adr),
+.cached_instr_gnt(cached_instr_gnt),
+.cached_instr_rvalid(cached_instr_rvalid),
+.cached_instr_read(cached_instr_read),
+// Interface between Cache and main memory
+.instr_req(instr_req),
+.instr_adr(instr_adr),
+.instr_gnt(instr_gnt),
+.instr_rvalid(instr_r_valid),
+.instr_read(instr_read)
+
+);
 `ifdef XILINX_SIMULATOR
 // Vivado Simulator (XSim) specific code
 initial
