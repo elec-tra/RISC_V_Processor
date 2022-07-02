@@ -13,7 +13,7 @@ beq x0, x0, 0x2C    # at address=0x0x1C00_8028, PC = 0x0x1C00_8080, Timer Interr
 00000000
 00000000
 00000000
-beq x0, x0, 0x2A    # at address=0x0x1C00_803C, PC = 0x0x1C00_8090, Button Interrupt
+jal x10, 0x2A		# at address=0x0x1C00_803C, PC = 0x0x1C00_8090, Button Interrupt, beq x0, x0, 0x2A = 04000A63 (or) jal x10, 0x2A = 0x0540_056F
 00000000
 00000000
 00000000
@@ -42,14 +42,14 @@ and x24, x22, x23       # x24 = Button 0 status
 or x25, x24, x0         # Transfer x24 value to x25
 srli x23, x23, 0x1      # x23 = 0x0002_0000(Mask Register) To check button 1
 and x24, x22, x23       # x24 = Button 1 status
-or x25, x24, x25         # Transfer x24 value to x25
+or x25, x24, x25        # Transfer x24 value to x25
 srli x23, x23, 0x1      # x23 = 0x0001_0000(Mask Register) To check button 2
 and x24, x22, x23       # x24 = Button 2 status
-or x25, x24, x25         # Transfer x24 value to x25
+or x25, x24, x25        # Transfer x24 value to x25
 srli x25, x25, 0x10     # shift right x25 by 16 position, i.e all button status at LSB
 lui x21 , 0x1a120	# x21 = 0x1A12_0000
 sw x25, 0(x21)          # Update last 3 bits of LED register
 mret
 
 Note:
-# Timer Interrupt Start Time: 5620ns
+# Timer Interrupt Start Time: 5620ns(Based on the code in system.v)
