@@ -53,8 +53,8 @@ pulpus psoc(
      .BOARD_LED_RGB0(BOARD_LED_RGB0),
      .BOARD_LED_RGB1(BOARD_LED_RGB1),
      
-//     .BOARD_BUTTON(BOARD_BUTTON),
-     .BOARD_BUTTON(button_array),
+     .BOARD_BUTTON(BOARD_BUTTON),
+//     .BOARD_BUTTON(button_array),
      .BOARD_SWITCH(BOARD_SWITCH),
      
      .BOARD_VGA_HSYNC(BOARD_VGA_HSYNC),

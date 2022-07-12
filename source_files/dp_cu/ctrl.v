@@ -30,7 +30,6 @@ module ctrl(
 
     //CPU Instruction input port
     input wire [6 : 0] opcode,
-    input wire [2 : 0] funct3,      // needed for csr and unaligned mem access
     
     //Program Counter Control port
     output reg MODE,                // 0-means increment by 4
@@ -66,16 +65,12 @@ module ctrl(
     input wire irq,
     input wire irq_status,
     output reg irq_ack,
-    output reg irq_status_update,   // Control Irq Context reg write
+    output reg irq_status_update,   // Control Interrupt Context and status register enable
     output reg irq_context,         // 0 - means interrupt not running, 1 - means interrupt running
     output reg irq_addr_sel,        // 0 - pc = Branch address, 1 - pc = Interrupt vector address
     output reg bckup_reg,           // 0 - Not change Instruction_Backup_Reg, 1 - Instruction_Backup_Reg = PC
     output reg mret_sel,            // 0 - pc = Branch address or Interrupt vector address, 1 - pc = Instruction_Backup_Reg
-    output reg irq_pc_mode,         // 1 means Load PC = pc data = Backup register
-    
-    //Unaligned Memory Access
-    input wire [1 : 0] n,           // offset
-    output reg [3 : 0] data_be 
+    output reg irq_pc_mode          // 1 means Load PC = pc data = Backup register
 );
 
     localparam [3:0]
@@ -103,7 +98,7 @@ module ctrl(
         end
     end
     
-    always @(stateMoore_reg, instr_gnt, instr_r_valid, opcode, data_gnt, data_r_valid, irq, irq_status, funct3, n)
+    always @(stateMoore_reg, instr_gnt, instr_r_valid, opcode, data_gnt, data_r_valid, irq, irq_status)
     begin
         // store current state as next, required: when no case statement is satisfied
         stateMoore_next = stateMoore_reg;
@@ -133,9 +128,6 @@ module ctrl(
         bckup_reg = 1'b0;
         mret_sel = 1'b0;
         irq_pc_mode = 1'b0;
-        
-        //Unaligned Memory Access
-        data_be = 4'b0000;
         
         casez(stateMoore_reg)
             Ready:
@@ -244,9 +236,8 @@ module ctrl(
                             stateMoore_next = Ready;
                         end
                         
-                        7'b0000011:     //Load Instruction     
+                        7'b0000011:     //LW Instruction
                         begin
-                            //These signals common to Load word, half word and byte
                             ALUSrcMux1 = 1'b0;      // A = Q0 Value
                             ALUSrcMux2 = 1'b1;      // Select Immediate Value
                             ALUSrcMux2_S = 1'b0;    // B = ALUSrcMux2 Value
@@ -256,88 +247,6 @@ module ctrl(
                             MODE = 1'b0;
                             data_write_enable = 1'b0;
                             data_req = 1'b1;        // Send Read request
-                            
-                            //LW - Load Word Instruction
-                            if(funct3 == 3'b010)
-                            begin
-                                casez (n)
-                                    2'b00:
-                                    begin
-                                        data_be = 4'b1111;
-                                    end
-                                    2'b01:
-                                    begin
-                                        data_be = 4'b1110;
-                                    end
-                                    2'b10:
-                                    begin
-                                        data_be = 4'b1100;
-                                    end
-                                    2'b11:
-                                    begin
-                                        data_be = 4'b1000;
-                                    end
-                                    default:
-                                    begin
-                                        data_be = 4'b0000;
-                                    end
-                                endcase
-                            end
-                            
-                            //LH - Load Half Word(16 Bits) Instruction
-                            if(funct3 == 3'b001)
-                            begin
-                                casez (n)
-                                    2'b00:
-                                    begin
-                                        data_be = 4'b0011;
-                                    end
-                                    2'b01:
-                                    begin
-                                        data_be = 4'b0110;
-                                    end
-                                    2'b10:
-                                    begin
-                                        data_be = 4'b1100;
-                                    end
-                                    2'b11:
-                                    begin
-                                        data_be = 4'b1000;
-                                    end
-                                    default:
-                                    begin
-                                        data_be = 4'b0000;
-                                    end
-                                endcase
-                            end
-                            
-                            //LB - Load Byte(8 Bits) Instruction
-                            if(funct3 == 3'b000)
-                            begin
-                                casez (n)
-                                    2'b00:
-                                    begin
-                                        data_be = 4'b0001;
-                                    end
-                                    2'b01:
-                                    begin
-                                        data_be = 4'b0010;
-                                    end
-                                    2'b10:
-                                    begin
-                                        data_be = 4'b0100;
-                                    end
-                                    2'b11:
-                                    begin
-                                        data_be = 4'b1000;
-                                    end
-                                    default:
-                                    begin
-                                        data_be = 4'b0000;
-                                    end
-                                endcase
-                            end
-                            
                             if(data_gnt == 1'b1)
                             begin
                                 stateMoore_next = wait_for_data_read;
@@ -362,46 +271,24 @@ module ctrl(
                             end
                         end
                         
-                        7'b1110011:
+                        7'b1110011:     // MRET Interrupt
                         begin
-                            if (funct3 == 3'b000)   // MRET Interrupt
-                            begin
-                                pc_enable = 1'b1;
-                                stateMoore_next = Ready;
-                                ALUSrcMux1 = 1'b0;
-                                ALUSrcMux2 = 1'b0;
-                                ALUSrcMux1_S = 1'b0;    // A = ALUSrcMux1 Value
-                                ALUSrcMux2_S = 1'b0;
-                                reg_pc_select = 1'b0;
-                                alu_dm_select = 1'b0;
-                                write_enable = 1'b0;
-                                //Interrupt
-                                irq_status_update = 1'b1;
-                                irq_context = 1'b0;     // ISR is Over
-                                irq_pc_mode = 1'b1;     // Load PC = Backup register
-                                irq_addr_sel = 1'b0;
-                                bckup_reg = 1'b0;
-                                mret_sel = 1'b1;
-                            end
-                            
-                            if (funct3 == 3'b010)   // CSR Instruction
-                            begin
-                                ALUSrcMux1 = 1'b0;      // don't care
-                                ALUSrcMux1_S = 1'b1;    // A = 0
-                                ALUSrcMux2 = 1'b1;      // Select Immediate Value
-                                ALUSrcMux2_S = 1'b0;    // B = ALUSrcMux2 Value
-                                
-                                write_enable = 1'b0;
-                                reg_pc_select = 1'b0;
-                                alu_dm_select = 1'b1;
-                                MODE = 1'b0;
-                                data_write_enable = 1'b0;
-                                data_req = 1'b1;        // Send Read request
-                                if(data_gnt == 1'b1)
-                                begin
-                                    stateMoore_next = wait_for_data_read;
-                                end
-                            end
+                            pc_enable = 1'b1;
+                            stateMoore_next = Ready;
+                            ALUSrcMux1 = 1'b0;
+                            ALUSrcMux2 = 1'b0;
+                            ALUSrcMux1_S = 1'b0;    // A = ALUSrcMux1 Value
+                            ALUSrcMux2_S = 1'b0;
+                            reg_pc_select = 1'b0;
+                            alu_dm_select = 1'b0;
+                            write_enable = 1'b0;
+                            //Interrupt
+                            irq_status_update = 1'b1;
+                            irq_context = 1'b0;     // ISR is Over
+                            irq_pc_mode = 1'b1;            // Load PC = Backup register
+                            irq_addr_sel = 1'b0;
+                            bckup_reg = 1'b0;
+                            mret_sel = 1'b1;
                         end
                         
                         default:
@@ -461,22 +348,14 @@ module ctrl(
                 data_req = 1'b0;
                 if(data_r_valid == 1'b1)
                 begin
-//                    ALUSrcMux1 = 1'b0;      // A = Q0 Value
-//                    ALUSrcMux2 = 1'b1;      // Select Immediate Value
-//                    ALUSrcMux2_S = 1'b0;    // B = ALUSrcMux2 Value
+                    ALUSrcMux1 = 1'b0;      // A = Q0 Value
+                    ALUSrcMux2 = 1'b1;      // Select Immediate Value
+                    ALUSrcMux2_S = 1'b0;    // B = ALUSrcMux2 Value
                     write_enable = 1'b1;
+                    reg_pc_select = 1'b0;
                     alu_dm_select = 1'b1;   // Data memory output
                     MODE = 1'b0;
                     stateMoore_next = wait_for_regset_write;
-                    
-                    //Unaligned Memory Access
-                    if( (opcode == 7'b0000011) || (opcode == 7'b0000011) )
-                    begin
-                        merge_reg_write_enable = 1'b1;
-                        alu_dm_select = 1'b1;   // Data memory output
-                        MODE = 1'b0;
-                        stateMoore_next = wait_for_merge_reg_write;
-                    end
                 end
                 
                 //Interrrupt Section:
