@@ -91,8 +91,9 @@ module ctrl(
         process_interrupt = 4'b0110,
         send_interrupt_acknowledge = 4'b0111,
         wait_for_regset_write_JI = 4'b1000,
-        mem_second_access = 4'b1001,
-        wait_for_second_mem_access = 4'b1010;
+        mem_second_read = 4'b1001,
+        wait_for_second_mem_read = 4'b1010,
+        mem_second_write = 4'b1011;
     
     reg [3:0] stateMoore_reg, stateMoore_next;
 
@@ -141,6 +142,9 @@ module ctrl(
         
         //Unaligned Memory Access
         data_be = 4'b0000;
+        merge_reg_write_enable = 1'b1;
+        dm_addr_select = 1'b1;
+        alu_dm_unalign_select = 1'b1;
         
         casez(stateMoore_reg)
             Ready:
@@ -289,7 +293,7 @@ module ctrl(
                                 endcase
                             end
                             
-                            //LH - Load Half Word(16 Bits) Instruction
+                            //LH - Load Half Word(16 Bits) Instruction Signed and Unsigned
                             if((funct3 == 3'b001) || (funct3 == 3'b101))
                             begin
                                 casez (n)
@@ -316,7 +320,7 @@ module ctrl(
                                 endcase
                             end
                             
-                            //LB - Load Byte(8 Bits) Instruction
+                            //LB - Load Byte(8 Bits) Instruction Signed and Unsigned
                             if((funct3 == 3'b000) || (funct3 == 3'b100))
                             begin
                                 casez (n)
@@ -361,6 +365,87 @@ module ctrl(
                             data_write_enable = 1'b1;
                             data_req = 1'b1;        // Send Write request
                             instr_req = 1'b0;
+                            
+                            //SW - Store Word Instruction
+                            if(funct3 == 3'b010)
+                            begin
+                                casez (n)
+                                    2'b00:
+                                    begin
+                                        data_be = 4'b1111;
+                                    end
+                                    2'b01:
+                                    begin
+                                        data_be = 4'b1110;
+                                    end
+                                    2'b10:
+                                    begin
+                                        data_be = 4'b1100;
+                                    end
+                                    2'b11:
+                                    begin
+                                        data_be = 4'b1000;
+                                    end
+                                    default:
+                                    begin
+                                        data_be = 4'b0000;
+                                    end
+                                endcase
+                            end
+                            
+                            //SH - Store Half Word(16 Bits) Instruction
+                            if(funct3 == 3'b001)
+                            begin
+                                casez (n)
+                                    2'b00:
+                                    begin
+                                        data_be = 4'b0011;
+                                    end
+                                    2'b01:
+                                    begin
+                                        data_be = 4'b0110;
+                                    end
+                                    2'b10:
+                                    begin
+                                        data_be = 4'b1100;
+                                    end
+                                    2'b11:
+                                    begin
+                                        data_be = 4'b1000;
+                                    end
+                                    default:
+                                    begin
+                                        data_be = 4'b0000;
+                                    end
+                                endcase
+                            end
+                            
+                            //SB - Store Byte(8 Bits) Instruction
+                            if(funct3 == 3'b000)
+                            begin
+                                casez (n)
+                                    2'b00:
+                                    begin
+                                        data_be = 4'b0001;
+                                    end
+                                    2'b01:
+                                    begin
+                                        data_be = 4'b0010;
+                                    end
+                                    2'b10:
+                                    begin
+                                        data_be = 4'b0100;
+                                    end
+                                    2'b11:
+                                    begin
+                                        data_be = 4'b1000;
+                                    end
+                                    default:
+                                    begin
+                                        data_be = 4'b0000;
+                                    end
+                                endcase
+                            end
                             if(data_gnt == 1'b1)
                             begin
                                 stateMoore_next = wait_for_data_write;
@@ -479,7 +564,7 @@ module ctrl(
                     begin
                         write_enable = 1'b0;    // Don't care
                         alu_dm_select = 1'b0;   // Don't care
-                        stateMoore_next = mem_second_access;
+                        stateMoore_next = mem_second_read;
                     end
                 end
                 
@@ -490,9 +575,13 @@ module ctrl(
                 end
             end
             
-            mem_second_access:
+            mem_second_read:
             begin
-                dm_addr_select = 1'b1;
+                dm_addr_select = 1'b1;  // data_mem_addr = a0+4
+                
+                ALUSrcMux1 = 1'b0;      // A = Q0 Value
+                ALUSrcMux2 = 1'b1;      // Select Immediate Value
+                ALUSrcMux2_S = 1'b0;    // B = ALUSrcMux2 Value
                 data_req = 1'b1;        // Send Read request
                 //LW - Load Word Instruction
                 if(funct3 == 3'b010)
@@ -517,7 +606,7 @@ module ctrl(
                     endcase
                 end
                 //LH - Load Half Word(16 Bits) Instruction
-                if(funct3 == 3'b001)
+                if((funct3 == 3'b001) || (funct3 == 3'b101))
                 begin
                     casez (n)
                         2'b11:
@@ -532,7 +621,7 @@ module ctrl(
                 end
                 if(data_gnt == 1'b1)
                 begin
-                    stateMoore_next = wait_for_second_mem_access;
+                    stateMoore_next = wait_for_second_mem_read;
                 end
                 
                 
@@ -543,7 +632,7 @@ module ctrl(
                 end
             end
             
-            wait_for_second_mem_access:
+            wait_for_second_mem_read:
             begin
                 data_req = 1'b0;
                 if(data_r_valid == 1'b1)
@@ -566,11 +655,74 @@ module ctrl(
                 pc_enable = 1'b1;
                 stateMoore_next = Ready;
                 
+                //Unaligned Memory Access
+                if( ( opcode == 7'b0100011 ) && 
+                    ( ((funct3 == 3'b010) && ((n == 2'b01) || (n == 2'b10) || (n == 2'b11))) ||
+                      ((funct3 == 3'b001) || (funct3 == 3'b101) && (n == 2'b11)) )
+                    )
+                begin
+                    pc_enable = 1'b0;       // Hold PC to do second write
+                    
+                    dm_addr_select = 1'b1;  // data_mem_addr = a0+4
+                    ALUSrcMux1 = 1'b0;      // A = Q0 Value
+                    ALUSrcMux2 = 1'b1;      // Select Immediate Value
+                    ALUSrcMux2_S = 1'b0;    // B = ALUSrcMux2 Value
+                    data_write_enable = 1'b1;
+                    data_req = 1'b1;        // Send Write request
+                    //SW - Store Word Instruction
+                    if(funct3 == 3'b010)
+                    begin
+                        casez (n)
+                            2'b01:
+                            begin
+                                data_be = 4'b0001;
+                            end
+                            2'b10:
+                            begin
+                                data_be = 4'b0011;
+                            end
+                            2'b11:
+                            begin
+                                data_be = 4'b0111;
+                            end
+                            default:
+                            begin
+                                data_be = 4'b0000;
+                            end
+                        endcase
+                    end
+                    //SH - Store Half Word(16 Bits) Instruction
+                    if(funct3 == 3'b001)
+                    begin
+                        casez (n)
+                            2'b11:
+                            begin
+                                data_be = 4'b0001;
+                            end
+                            default:
+                            begin
+                                data_be = 4'b0000;
+                            end
+                        endcase
+                    end
+                    if(data_gnt == 1'b1)
+                        stateMoore_next = mem_second_write;
+                    else
+                        stateMoore_next = wait_for_data_write;
+                end
+                
                 //Interrrupt Section:
                 if((irq == 1'b1) && (irq_status == 0))
                 begin
                     stateMoore_next = process_interrupt;
                 end
+            end
+            
+            mem_second_write:
+            begin
+                data_req = 1'b0;
+                pc_enable = 1'b1;
+                stateMoore_next = Ready;
             end
             
             process_interrupt:
