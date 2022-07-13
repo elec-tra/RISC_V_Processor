@@ -79,7 +79,7 @@ pulpus psoc(
          .DATA_GNT(data_gnt),
          .DATA_RVALID(data_r_valid),
          .DATA_WE(data_write_enable),
-         .DATA_BE(4'b0001),
+         .DATA_BE(4'b1111),
          .DATA_ADDR(data_adr),
          .DATA_WDATA(data_write),
          .DATA_RDATA(data_read),
