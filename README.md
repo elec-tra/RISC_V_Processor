@@ -2,6 +2,11 @@
 
 Design and Implementation of Single and Dual Core Processor RISC-V processor (using PULP platform SoC) on a Digilent Arty S7-50 FPGA board
 
+## Usage
+
+[SINGLE CORE](https://github.com/elec-tra/RISC_V_Processor) :The Source files for Single Core RISC-V Processor are maintained in this repository. 
+[DUAL CORE](https://github.com/rstar900/Dual-Core-RISC-V-Processor) :The Source files for Dual Core RISC-V Processor are maintained in a another repository. 
+
 ## Contributors
 
 <!-- prettier-ignore-start -->
