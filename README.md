@@ -2,7 +2,7 @@
 
 Design and Implementation of Single and Dual Core Processor RISC-V processor (using PULP platform SoC) on a Digilent Arty S7-50 FPGA board
 
-##Contributors
+## Contributors
 
 <!-- prettier-ignore-start -->
 
