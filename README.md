@@ -7,7 +7,7 @@ Design and Implementation of Single and Dual Core Processor RISC-V processor (us
 <!-- prettier-ignore-start -->
 
 - [Saranyan Palaniappan](https://github.com/elec-tra)
-
+- [Rachit Garg](https://github.com/rstar900)
 
 ## Results
 Mandelbrot program running on a Single core RISC-V processor
