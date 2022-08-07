@@ -8,6 +8,7 @@
 `define OPCODE_JAL 7'h6f
 `define OPCODE_AUIPC 7'h17
 `define OPCODE_LUI 7'h37
+`define OPCODE_CSRRS 7'h73
 
 module proc(
 	input clk,
@@ -27,7 +28,7 @@ module proc(
 	output [31 : 0] data_adr,
 	output data_req,
 	output data_write_enable,
-	//output [3 : 0] data_be,
+	output [3 : 0] data_be,
 	output irq_ack,
 	output [4 : 0] irq_ack_id
 );
@@ -66,6 +67,12 @@ module proc(
 	wire irq_status_update; // input from CU
 	reg irq_status_reg; // Output to CU
 	reg [4 : 0] irq_ack_id_reg; // Output to CU
+	//For unaligned (v10)
+	wire[2 : 0] funct3;
+	wire [1 : 0] n;
+	wire merge_reg_write_enable;  //0 - means disable register, 1 - means enable register
+    wire dm_addr_select;          //0 - address for alu, 1 - means a0+4
+    wire alu_dm_unalign_select;    //0 - alu or data memory output, 1 - means merged data
 
 	//Register Set
 	wire [4 : 0] Read_register_1;
@@ -107,6 +114,10 @@ module proc(
 	
 	//Interrupt
 	assign irq_ack_id = irq_ack_id_reg;
+
+	//Unaligned (v10)
+	assign funct3 = instr_read[14 : 12];
+	assign n = ALU_result % 4;
 
 	//-----Component definitions-----
 
@@ -158,7 +169,9 @@ module proc(
 			.data_r_valid(data_r_valid), .bckup_reg(bckup_reg),
 			.irq_addr_sel(irq_addr_sel), .mret_sel(mret_sel), .irq(irq), .irq_ack(irq_ack), .irq_context(irq_context), .irq_status(irq_status_reg),
 			.irq_status_update(irq_status_update),.pc_enable(pc_enable),
-			.irq_pc_mode(irq_pc_mode)); //CHECKED
+			.irq_pc_mode(irq_pc_mode), .funct3(funct3), .n(n), data_be(data_be),
+			.merge_reg_write_enable(merge_reg_write_enable), .dm_addr_select(dm_addr_select),
+			.alu_dm_unalign_select(alu_dm_unalign_select)); //CHECKED
 
 	//Register Set
 	//wire [31 : 0] write_addr_reg_wire;
@@ -172,7 +185,7 @@ module proc(
 	   imm_gen_output <= 32'd0;
 	   
 		casez(instr_read[6 : 0])
-			`OPCODE_OPIMM: imm_gen_output <= { {20{instr_read[31]}}, instr_read[31 : 20] }; //CHECKED
+			`OPCODE_OPIMM, `OPCODE_CSRRS: imm_gen_output <= { {20{instr_read[31]}}, instr_read[31 : 20] }; //CHECKED
 			`OPCODE_STORE: imm_gen_output <= { {20{instr_read[31]}}, instr_read[31 : 25], instr_read[11 : 7] }; //CHECKED
 			`OPCODE_LOAD: imm_gen_output <= { {20{instr_read[31]}}, instr_read[31 : 20] }; //CHECKED
 			`OPCODE_BRANCH: imm_gen_output <= { {19{instr_read[31]}} ,instr_read[31], instr_read[7], instr_read[30 : 25], instr_read[11 : 8], 1'b0}; //CHECKED
@@ -200,12 +213,21 @@ module proc(
 
 	//Data Memory //Checked for now
 	//Not a part of processor so only need to use outside ports for input and output
-	assign data_adr = ALU_result;
+	// Modifying data_adr for unaligned v10
+	wire [31 : 0] before_data_merge_wire;
+	wire [31 : 0] after_data_merge_wire;
+	wire [31 : 0] Write_data_pre;
+	MUX_2x1_32 MUX_DM_ADDR_SELECT(.I0(ALU_result), .I1(ALU_result + 32'd4), .S(dm_addr_select), .Y(data_adr));
+	REG_DRE_32 before_data_merge_reg(.D(data_read), .Q(before_data_merge_wire), .CLK(clk), .RES(res), .ENABLE(merge_reg_write_enable));
+	assign after_data_merge_wire = before_data_merge_wire | data_read;
+	MUX_2x1_32 MUX_DATA(.I0(ALU_result), .I1(data_read), .S(MemtoReg), .Y(Write_data_pre)); //Checked
+	MUX_2x1_32 MUX_ALU_DM_UNALIGN_SELECT(.I0(Write_data_pre), .I1(after_data_merge_wire), .S(alu_dm_unalign_select), .Y(Write_data));
+	//assign data_adr = ALU_result;
 	assign data_write = Read_data_2;
 	//wire [31 : 0] alureg;
 	//wire [31 : 0] alures;
 	//REG_DRE_32 alu_reg_write_back(.D(ALU_result), .Q(alureg), .CLK(clk), .RES(res), .ENABLE(~res)); 
 	//MUX_2x1_32 MUX_INSTR_PIPELINE(.I0(ALU_result), .I1(alureg), .S(instr_pipeline), .Y(alures));
-	MUX_2x1_32 MUX_DATA(.I0(ALU_result), .I1(data_read), .S(MemtoReg), .Y(Write_data)); //Checked
+	
 
 endmodule
