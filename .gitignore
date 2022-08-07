@@ -6,12 +6,8 @@
 
 !*/
 !source_files/*/*.v
-!source_files/*/*.xdc
 !source_files/*/*.mem
 !source_files/*/*.s
-!source_files/*/*.sv
 !source_files/*/*/*.v
-!source_files/*/*/*.xdc
 !source_files/*/*/*.mem
 !source_files/*/*/*.s
-!source_files/*/*/*.sv
