@@ -11,3 +11,4 @@
 !source_files/*/*/*.v
 !source_files/*/*/*.mem
 !source_files/*/*/*.s
+!Results/*.gif
