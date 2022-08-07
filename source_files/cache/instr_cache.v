@@ -1,6 +1,6 @@
 module instr_cache
 #(
-parameter LOG_SIZE=4
+parameter LOG_SIZE=5
 )
 (
 input clk,
@@ -62,7 +62,9 @@ localparam STATE_MEM_FILL = 2'b11;
 
 reg [STATE_BITS-1:0] currentState, nextState;
 
-always @(currentState, cached_instr_req, index, cached_instr_adr, instr_gnt, instr_rvalid, hit) begin
+always @(currentState, cached_instr_req, instr_gnt, instr_rvalid, hit, cached_instr_adr, index) begin
+//always @(currentState, cached_instr_req, instr_gnt, instr_rvalid, hit, cached_instr_adr) begin
+
     cached_instr_gnt = 1'b0;
     cached_instr_rvalid = 1'b0;
     cached_instr_read = 'b0;
@@ -79,17 +81,11 @@ always @(currentState, cached_instr_req, index, cached_instr_adr, instr_gnt, ins
 
             if (hit == 1'b1) begin
                 cached_instr_gnt = 1'b1;
-//                cached_instr_rvalid = 1'b0;
-                cached_instr_read = lines[index]; 
-//                instr_req = 1'b0;
                 instr_adr = cached_instr_adr;
 
                 nextState = STATE_GIVE_INSTR; // cache hit: flush
 
             end else begin // cache miss : request main memory for the instruction
-//                cached_instr_gnt = 1'b0;
-//                cached_instr_rvalid = 1'b0;
-//                cached_instr_read = 'b0;
                 instr_req = 1'b1;
                 instr_adr = cached_instr_adr;
 
@@ -100,16 +96,12 @@ always @(currentState, cached_instr_req, index, cached_instr_adr, instr_gnt, ins
 
         STATE_GIVE_INSTR: begin
             cached_instr_rvalid = 1'b1;
-//            cached_instr_gnt = 1'b0;
+            cached_instr_read = lines[index]; 
             nextState = STATE_IDLE;
         end
 
         STATE_MEM_FILL: begin
             if (instr_rvalid) begin
-//                cached_instr_gnt = 1'b0;
-//                cached_instr_rvalid = 1'b0;
-//                cached_instr_read = 'b0;
-//                instr_req = 1'b0;
                 instr_adr = cached_instr_adr;
 
                 nextState = STATE_LOOKUP;
